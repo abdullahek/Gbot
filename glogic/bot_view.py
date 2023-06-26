@@ -1,100 +1,66 @@
-from . import app, db, WebScrape
+from . import app, db#, WebScrapea
 from .gresponses import Dictionary
 from .models import User
 from flask import request
 from twilio.twiml.messaging_response import MessagingResponse
+from . import Long_Question_Common as lrq
 
 
 @app.route('/message', methods=['GET', 'POST'])
 def bot():
-
+    print("request")
     num = request.form.get('From')
     num = num.replace('whatsapp:', '')
     incoming_msg = request.form.get('Body').lower()
-    db.save(User(number=num,
-                 response=incoming_msg))
+
+
+
+    # db.save(User(number=num,
+    #              response=incoming_msg))
 
     resp = MessagingResponse()
     msg = resp.message()
 
-    if ('hi' in incoming_msg) or ('hello' in incoming_msg) or ('menu' in incoming_msg):
-        out = Dictionary['hello']
-    
-    elif ('are you still working' in incoming_msg):
-        out = "Yes, all is well"
-        
-    elif ('1' in incoming_msg) or (incoming_msg == 'africa'):
-        out = Dictionary['isafricaflatteningthecurve']
+    new, pending, responses_list = lrq.Send_Survey_Question(num,'New')
+    # print(new)
+    Message=''
+    if new is None:
+        Message = "Thank you! You have completed the survey and you’ve earned R100 airtime which is on its way to you now. As part of your participation in the study, someone from Genesis Analytics will contact you to hear about how WageWise has helped you to manage your money so far. If you want to stop receiving the surveys, please send STOP."
 
-    elif ('2' in incoming_msg) or (incoming_msg == 'healthcare'):
-        out = Dictionary['healthcareriskcalculator']
+        msg.body(Message)
+    elif incoming_msg in ['End','end']:
+        lrq.Vipe_clean_user_question_logs(num)
 
-    elif ('3' in incoming_msg) or ('info' in incoming_msg):
-        out = WebScrape.covnews
+        Message = "Please type Hi to re-start the process."
 
-    elif 'newsletter' in incoming_msg:
-        out = WebScrape.bulletins
+        msg.body(Message)
+    elif incoming_msg is not None and incoming_msg not in ['Hi','hi','HI'] and new is not None:
+        new, pending, responses_list = lrq.Send_Survey_Question(num, 'Response')
+        print("Printing responses_list")
+        print(responses_list)
+        response = lrq.Validate_Options(responses_list[0]['Options'], incoming_msg)
+        if response == 'valid':
+            lrq.add_User_response(num,incoming_msg)
+            new, pending, responses_list = lrq.Send_Survey_Question(num, 'New')
+            # print(new)
+            lrq.add_Question_Sent_Log(new, num)
+            for r in new:
+                Message = Message + '\n\n' + r['Question'] + "\n\n" + r['Options']
 
-    elif 'news' in incoming_msg:
-        out = Dictionary['news']
 
-    elif 'headline' in incoming_msg:
-        out = WebScrape.headlines
+        else:
+            Message = "Sorry, please try answering again. Remember to send only the number that matches the answer you want to choose."
 
-    elif 'report' in incoming_msg:
-        out = WebScrape.reports
+        msg.body(Message)
 
-    elif 'about' in incoming_msg:
-        out = Dictionary['about']
+    elif new is not None and incoming_msg is not None:
+        for r in new:
+            Message = Message + '\n\n' + r['Question']
+            # lrq.add_Question_Sent_Log(new, num)
+        lrq.add_Question_Sent_Log(new, num)
+        msg.body(Message)
 
-    elif 'values' in incoming_msg:
-        out = Dictionary['core']
 
-    elif 'value' in incoming_msg:
-        out = WebScrape.value
 
-    elif 'covid' in incoming_msg:
-        out = Dictionary['covid']
-
-    elif 'contact' in incoming_msg:
-        out = Dictionary['contact']
-
-    elif 'bdu' in incoming_msg:
-        out = Dictionary['bdu']
-
-    elif 'careers' in incoming_msg:
-        out = Dictionary['careers']
-
-    elif 'offices' in incoming_msg:
-        out = Dictionary["offices"]
-
-    elif 'corporate' in incoming_msg:
-        out = Dictionary['corporate']
-
-    elif 'za' in incoming_msg:
-        out = Dictionary['za']
-
-    elif 'ke' in incoming_msg:
-        out = Dictionary['ke']
-
-    elif 'uk' in incoming_msg:
-        out = Dictionary['uk']
-
-    elif 'ca' in incoming_msg:
-        out = Dictionary['ca']
-
-    elif 'ae' in incoming_msg:
-        out = Dictionary['ae']
-
-    elif 'in' in incoming_msg:
-        out = Dictionary['in']
-
-    elif 'ng' in incoming_msg:
-        out = Dictionary['ng']
-
-    else:
-        out = "I'm sorry, I'm still young and don't understand your request. \
-    Please use the words in bold to talk to me."
-
-    msg.body(out + "\n\nIf you would like to return the menu, just say *Hi* or type *Menu*.")
     return str(resp)
+
