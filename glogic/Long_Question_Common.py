@@ -76,7 +76,7 @@ def Send_Survey_Question(User,Type):
             cursor.execute(query)
             question = cursor.fetchone()
 
-            question_options = f"select Options from Questions_List where number = '{question[0]}';"
+            question_options = f"select Options_list from Questions_List where number = '{question[0]}';"
             cursor.execute(question_options)
             Options_question = cursor.fetchone()
             if Options_question:
