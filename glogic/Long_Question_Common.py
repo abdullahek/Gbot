@@ -27,13 +27,13 @@ def Send_Survey_Question(User,Type):
         responses_list = []
 
         if Type == 'Pending':
-            query = f"select *,datediff(hour,sent_on,getdate()) as HourDiff from User_Question_Logs where User_Number = '{User}' and Response_Status = 0;"
+            query = f"select *,datediff(hour,sent_on,getdate()) as HourDiff from User_Question_Logs where User_Number = '{User}' and Response_Status = 0 and completed = 0;"
             cursor.execute(query)
             for i in cursor:
 
                 if i[5]>48 or i[5]>168:
                     message = f"Sending message to {i[1]} after {i[5]} hours. Since, there isn't any response received against last question."
-                    print(message)
+                    # print(message)
                     query = f"SELECT * FROM Questions_List where status = 1 and number = '{i[2]}';"
                     cursor.execute(query)
                     question = cursor.fetchone()
@@ -46,7 +46,7 @@ def Send_Survey_Question(User,Type):
                 else:
                     print("No pending Responses")
         elif Type == "New":
-            query = f"select max(cast(Q_number as int)) as Last_question_id from User_Question_Logs where User_Number = '{User}';"
+            query = f"select max(cast(Q_number as int)) as Last_question_id from User_Question_Logs where User_Number = '{User}'  and completed = 0;"
             cursor.execute(query)
             question = cursor.fetchone()
 
@@ -72,26 +72,31 @@ def Send_Survey_Question(User,Type):
                 }
                 new_questions.append(json_list)
         elif Type == "Response":
-            query = f"select max(Q_number) as Last_question_id ,(select count(1) from User_Question_Logs where user_number = '{User}') as q_count from User_Question_Logs where User_Number = '{User}' and Response_Status = 0 and datediff(hour,sent_on,getdate())<48;"
+            query = f"select max(Q_number) as Last_question_id ,(select count(1) from User_Question_Logs where user_number = '{User}'  and completed = 0) as q_count from User_Question_Logs where User_Number = '{User}'  and completed = 0 and Response_Status = 0 and datediff(hour,sent_on,getdate())<48;"
             cursor.execute(query)
             question = cursor.fetchone()
 
-            question_options = f"select Options_list from Questions_List where number = '{question[0]}';"
+            question_options = f"select Options_List,Is_MultiSelect from Questions_List where number = '{question[0]}';"
             cursor.execute(question_options)
             Options_question = cursor.fetchone()
             if Options_question:
-                print(Options_question[0])
+                # print(Options_question[0])
+                # print(Options_question[1])
 
                 output = Options_question[0].split(',')
-                print(output)
+                # print(output)
+
+                Multi_True = Options_question[1]
+                # print(Multi_True)
 
                 message = f"Message received from {User} agianst Question ID {question[0]} and current question count is {question[1]}."
-                print(message)
+                # print(message)
 
                 response = {
                     "Question": question[0].replace('$',"\n"),
                     "Options": output,
-                    "count": question[1]
+                    "count": question[1],
+                    "Multi": Multi_True
                 }
 
                 responses_list.append(response)
@@ -103,21 +108,19 @@ def Send_Survey_Question(User,Type):
         cursor.close()
         conn.close()
 
-
 def add_User_response(User, Response):
     try:
         conn, cursor = Get_DB_conn()
         new, pending, responses_list = Send_Survey_Question(User, 'Response')
 
         if responses_list:
-
-            query = f"insert into User_Response_Logs select * from ( select '{User}' as user_,'{responses_list[0]['Question']}' as response_q,'{Response}' as response_,getdate() as received_on) as e where not exists (select 1 from User_Response_Logs l where l.user_number = e.user_ and l.response = e.response_ and l.q_number = e.response_q);"
+            query = f"insert into User_Response_Logs select * from ( select '{User}' as user_,'{responses_list[0]['Question']}' as response_q,'{Response}' as response_,getdate() as received_on, 0 as completed ) as e where not exists (select 1 from User_Response_Logs l where l.user_number = e.user_ and l.response = e.response_ and l.q_number = e.response_q  and l.completed = 0);"
 
             cursor.execute(query)
 
             cursor.commit()
 
-            update_status = f"Update User_Question_Logs set response_status = 1 where user_number = '{User}' and Q_Number = '{responses_list[0]['Question']}' and response_status = 0;"
+            update_status = f"Update User_Question_Logs set response_status = 1 where user_number = '{User}' and Q_Number = '{responses_list[0]['Question']}' and response_status = 0  and completed = 0;"
 
             cursor.execute(update_status)
 
@@ -139,10 +142,10 @@ def add_Question_Sent_Log(Q_List,User):
         for i in Q_List:
         # Q_List
             print(i['Q_Number'])
-        if i['Q_Number']=='21':
-            query = f"insert into User_Question_Logs select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,1 as status_,getdate() as date_ ) as r where not exists (select 1 from User_Question_Logs L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0 );"
+        if i['Q_Number'] == '21':
+            query = f"insert into User_Question_Logs select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,1 as status_,getdate() as date_, 0 as completed ) as r where not exists (select 1 from User_Question_Logs L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0  and L.completed = 0);"
         else:
-            query = f"insert into User_Question_Logs select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,0 as status_,getdate() as date_ ) as r where not exists (select 1 from User_Question_Logs L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0 );"
+            query = f"insert into User_Question_Logs select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,0 as status_,getdate() as date_, 0 as completed ) as r where not exists (select 1 from User_Question_Logs L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0  and L.completed = 0);"
         cursor.execute(query)
         cursor.commit()
         print("Question has been logged succeddfully!!")
