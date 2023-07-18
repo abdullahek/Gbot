@@ -16,7 +16,6 @@ def Get_DB_conn():
             print('failed')
             continue
     raise  # throw if the retry fails too often
-
 def Send_Survey_Question(User,Type):
     try:
 
@@ -51,14 +50,14 @@ def Send_Survey_Question(User,Type):
             question = cursor.fetchone()
 
             message = f"Sending message to {User} for new question after Question ID {question[0]}."
-            print(message)
+            # print(message)
 
             if question[0] is None:
                 query = f"SELECT * FROM Questions_List where status = 1 and number in ('-3','-2','-1');"
             else:
 
                 query = f"SELECT  top 1 * FROM Questions_List where status = 1 and cast(number as integer) > cast('{question[0]}' as integer) and number not in ('Thanks Continue','Invalid');"
-                print(query)
+                # print(query)
             cursor.execute(query)
             question = cursor.fetchall()
             for i in question:
@@ -108,12 +107,14 @@ def Send_Survey_Question(User,Type):
         cursor.close()
         conn.close()
 
+
 def add_User_response(User, Response):
     try:
         conn, cursor = Get_DB_conn()
         new, pending, responses_list = Send_Survey_Question(User, 'Response')
 
         if responses_list:
+
             query = f"insert into User_Response_Logs select * from ( select '{User}' as user_,'{responses_list[0]['Question']}' as response_q,'{Response}' as response_,getdate() as received_on, 0 as completed ) as e where not exists (select 1 from User_Response_Logs l where l.user_number = e.user_ and l.response = e.response_ and l.q_number = e.response_q  and l.completed = 0);"
 
             cursor.execute(query)
@@ -126,7 +127,7 @@ def add_User_response(User, Response):
 
             cursor.commit()
 
-            print("Response saved successfully!!")
+            # print("Response saved successfully!!")
         else:
             print("No pending questions!!")
     except Exception as e:
@@ -141,14 +142,14 @@ def add_Question_Sent_Log(Q_List,User):
 
         for i in Q_List:
         # Q_List
-            print(i['Q_Number'])
-        if i['Q_Number'] == '21':
-            query = f"insert into User_Question_Logs select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,1 as status_,getdate() as date_, 0 as completed ) as r where not exists (select 1 from User_Question_Logs L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0  and L.completed = 0);"
-        else:
-            query = f"insert into User_Question_Logs select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,0 as status_,getdate() as date_, 0 as completed ) as r where not exists (select 1 from User_Question_Logs L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0  and L.completed = 0);"
+        #     print(i['Q_Number'])
+            if i['Q_Number']=='21':
+                query = f"insert into User_Question_Logs select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,1 as status_,getdate() as date_, 0 as completed ) as r where not exists (select 1 from User_Question_Logs L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0  and L.completed = 0);"
+            else:
+                query = f"insert into User_Question_Logs select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,0 as status_,getdate() as date_, 0 as completed ) as r where not exists (select 1 from User_Question_Logs L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0  and L.completed = 0);"
         cursor.execute(query)
         cursor.commit()
-        print("Question has been logged succeddfully!!")
+        # print("Question has been logged succeddfully!!")
     except Exception as e:
         print(e)
     finally:
@@ -169,38 +170,30 @@ def Vipe_clean_user_question_logs(User):
     try:
         conn, cursor = Get_DB_conn()
 
-        query = f"delete from User_Question_Logs where User_Number = '{User}';"
+        query = f"update User_Question_Logs set completed = 1 where User_Number = '{User}' and completed != 1; update User_Response_Logs set completed = 1 where User_Number = '{User}' and completed != 1;"
         cursor.execute(query)
         cursor.commit()
-        print("Question history has been Removed successfully!!")
+        # print("Question history has been Removed successfully!!")
     except Exception as e:
         print(e)
     finally:
         cursor.close()
         conn.close()
 
-# new, pending, responses_list = Send_Survey_Question('+923214075902','New')
-#
-# print(new)
-# print("--------------------")
-# print(pending)
-# print("--------------------")
-# print(responses_list)
-# #
-# Validate_Options(responses_list[0]['Options'],'a')
-#
-# add_User_response("+923214075902",'a')
-#
-# new, pending, responses_list = Send_Survey_Question('+9232140759021','New')
-# #
-# print(new)
-# print("--------------------")
-# print(pending)
-# print("--------------------")
-# print(responses_list)
-#
-# add_Question_Sent_Log(new,"+923214075902")
-#
-# Validate_Options(responses_list[0]['Options'],'a')
-#
-# add_User_response("+923214075902",'a')
+
+def check_survey_status(num):
+    try:
+        conn, cursor = Get_DB_conn()
+
+        query = f"select count(1) as cnt_ from User_Question_Logs where User_Number = '{num}' and completed = 1;"
+        cursor.execute(query)
+        Survey_Status = cursor.fetchone()
+
+        status = Survey_Status[0]
+        return status
+        # print("Question history has been Removed successfully!!")
+    except Exception as e:
+        print(e)
+    finally:
+        cursor.close()
+        conn.close()
