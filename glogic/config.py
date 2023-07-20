@@ -10,7 +10,12 @@ username = os.environ.get('NAME')
 password = os.environ.get('PASSWORD')
 
 
-params = urllib.parse.quote_plus("DRIVER={ODBC Driver 17 for SQL Server};SERVER=localhost;DATABASE=test;UID=sa;PWD=saPwd123")
+params = urllib.parse.quote_plus('Driver={ODBC Driver 17 for SQL Server};'
+                                  'Server=tcp:gbot-euro-server.database.windows.net,1433;'
+                                  'Database=test;'
+                                  # 'Trusted_Connection=yes;'
+                                  ';UID=myadmin;'
+                                  'PWD=pipQe8-sadjej-covcaf')
 
 
 class MSSQLConfig(object):

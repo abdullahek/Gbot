@@ -1,8 +1,10 @@
 import pyodbc
 
-tbl_user_qt_response = "midline_answers"
-tbl_user_response = "midline_question_response"
-tbl_question_list = "midline_Questions_List"
+
+
+tbl_user_response= "midline_answers" # User_questions_log
+tbl_user_qt_response = "midline_question_response" # User_Response_Logs
+tbl_question_list = "midline_questions_list" # {tbl_question_list}
 
 
 def Get_DB_conn():
@@ -10,19 +12,19 @@ def Get_DB_conn():
     for retry in range(3):
         try:
             conn = pyodbc.connect('Driver={ODBC Driver 17 for SQL Server};'
-                                  'Server=localhost;'
+                                  'Server=tcp:gbot-euro-server.database.windows.net,1433;'
                                   'Database=test;'
                                   # 'Trusted_Connection=yes;'
-                                  ';UID=sa;'
-                                  'PWD=saPwd123')
+                                  ';UID=myadmin;'
+                                  'PWD=pipQe8-sadjej-covcaf')
             cursor = conn.cursor()
             return conn,cursor
         except Exception as e:
             print('failed')
             continue
     raise  # throw if the retry fails too often
+
 def Send_Survey_Question(User,Type):
-    tbl_user_qt_response = "midline_answers"
     try:
 
         conn, cursor = Get_DB_conn()
@@ -32,7 +34,7 @@ def Send_Survey_Question(User,Type):
         responses_list = []
 
         if Type == 'Pending':
-            query = f"select *,datediff(hour,sent_on,getdate()) as HourDiff from midline_answers where User_Number = '{User}' and Response_Status = 0 and completed = 0;"
+            query = f"select *,datediff(hour,sent_on,getdate()) as HourDiff from {tbl_user_response} where User_Number = '{User}' and Response_Status = 0 and completed = 0;"
             cursor.execute(query)
             for i in cursor:
 
@@ -51,7 +53,7 @@ def Send_Survey_Question(User,Type):
                 else:
                     print("No pending Responses")
         elif Type == "New":
-            query = f"select max(cast(Q_number as int)) as Last_question_id from {tbl_user_qt_response} where User_Number = '{User}'  and completed = 0;"
+            query = f"select max(cast(Q_number as int)) as Last_question_id from {tbl_user_response} where User_Number = '{User}'  and completed = 0;"
             cursor.execute(query)
             question = cursor.fetchone()
 
@@ -77,11 +79,11 @@ def Send_Survey_Question(User,Type):
                 }
                 new_questions.append(json_list)
         elif Type == "Response":
-            query = f"select max(Q_number) as Last_question_id ,(select count(1) from {tbl_user_qt_response} where user_number = '{User}'  and completed = 0) as q_count from {tbl_user_qt_response} where User_Number = '{User}'  and completed = 0 and Response_Status = 0 and datediff(hour,sent_on,getdate())<48;"
+            query = f"select max(Q_number) as Last_question_id ,(select count(1) from {tbl_user_response} where user_number = '{User}'  and completed = 0) as q_count from {tbl_user_response} where User_Number = '{User}'  and completed = 0 and Response_Status = 0 and datediff(hour,sent_on,getdate())<48;"
             cursor.execute(query)
             question = cursor.fetchone()
 
-            question_options = f"select Options_List,Is_MultiSelect from {tbl_question_list} where number = '{question[0]}';"
+            question_options = f"select Options_List,Is_MultiSelect,Allow_Other from {tbl_question_list} where number = '{question[0]}';"
             cursor.execute(question_options)
             Options_question = cursor.fetchone()
             if Options_question:
@@ -92,6 +94,7 @@ def Send_Survey_Question(User,Type):
                 # print(output)
 
                 Multi_True = Options_question[1]
+                Allow_Other = Options_question[2]
                 # print(Multi_True)
 
                 message = f"Message received from {User} agianst Question ID {question[0]} and current question count is {question[1]}."
@@ -101,7 +104,8 @@ def Send_Survey_Question(User,Type):
                     "Question": question[0].replace('$',"\n"),
                     "Options": output,
                     "count": question[1],
-                    "Multi": Multi_True
+                    "Multi": Multi_True,
+                    "OtherAllowed": Allow_Other
                 }
 
                 responses_list.append(response)
@@ -121,13 +125,13 @@ def add_User_response(User, Response):
 
         if responses_list:
 
-            query = f"insert into {tbl_user_qt_response} select * from ( select '{User}' as user_,'{responses_list[0]['Question']}' as response_q,'{Response}' as response_,getdate() as received_on, 0 as completed ) as e where not exists (select 1 from '{tbl_user_response}' l where l.user_number = e.user_ and l.response = e.response_ and l.q_number = e.response_q  and l.completed = 0);"
+            query = f"insert into {tbl_user_qt_response} select * from ( select '{User}' as user_,'{responses_list[0]['Question']}' as response_q,'{Response}' as response_,getdate() as received_on, 0 as completed ) as e where not exists (select 1 from {tbl_user_qt_response} l where l.user_number = e.user_ and l.response = e.response_ and l.q_number = e.response_q  and l.completed = 0);"
 
             cursor.execute(query)
 
             cursor.commit()
 
-            update_status = f"Update {tbl_user_qt_response} set response_status = 1 where user_number = '{User}' and Q_Number = '{responses_list[0]['Question']}' and response_status = 0  and completed = 0;"
+            update_status = f"Update {tbl_user_response} set response_status = 1 where user_number = '{User}' and Q_Number = '{responses_list[0]['Question']}' and response_status = 0  and completed = 0;"
 
             cursor.execute(update_status)
 
@@ -150,9 +154,9 @@ def add_Question_Sent_Log(Q_List,User):
         # Q_List
         #     print(i['Q_Number'])
             if i['Q_Number']=='21':
-                query = f"insert into {tbl_user_qt_response} select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,1 as status_,getdate() as date_, 0 as completed ) as r where not exists (select 1 from {tbl_user_qt_response} L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0  and L.completed = 0);"
+                query = f"insert into {tbl_user_response} select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,1 as status_,getdate() as date_, 0 as completed ) as r where not exists (select 1 from {tbl_user_response} L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0  and L.completed = 0);"
             else:
-                query = f"insert into {tbl_user_qt_response} select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,0 as status_,getdate() as date_, 0 as completed ) as r where not exists (select 1 from {tbl_user_qt_response} L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0  and L.completed = 0);"
+                query = f"insert into {tbl_user_response} select * from (select '{User}' as user_,'{i['Q_Number']}' as q_number,0 as status_,getdate() as date_, 0 as completed ) as r where not exists (select 1 from {tbl_user_response} L where L.User_Number = R.user_ and L.Q_Number = R.Q_Number and L.Response_Status = 0  and L.completed = 0);"
         cursor.execute(query)
         cursor.commit()
         # print("Question has been logged succeddfully!!")
@@ -176,7 +180,7 @@ def Vipe_clean_user_question_logs(User):
     try:
         conn, cursor = Get_DB_conn()
 
-        query = f"update {tbl_user_qt_response} set completed = 1 where User_Number = '{User}' and completed != 1; update '{tbl_user_response}' set completed = 1 where User_Number = '{User}' and completed != 1;"
+        query = f"update {tbl_user_response} set completed = 1 where User_Number = '{User}' and completed != 1; update {tbl_user_qt_response} set completed = 1 where User_Number = '{User}' and completed != 1;"
         cursor.execute(query)
         cursor.commit()
         # print("Question history has been Removed successfully!!")
@@ -191,7 +195,7 @@ def check_survey_status(num):
     try:
         conn, cursor = Get_DB_conn()
 
-        query = f"select count(1) as cnt_ from {tbl_user_qt_response} where User_Number = '{num}' and completed = 1;"
+        query = f"select count(1) as cnt_ from {tbl_user_response} where User_Number = '{num}' and completed = 1;"
         cursor.execute(query)
         Survey_Status = cursor.fetchone()
 
