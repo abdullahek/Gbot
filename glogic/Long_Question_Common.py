@@ -216,8 +216,11 @@ def registered(num):
     query = f"select count(1) as r from users where number = '{num}';"
     cursor.execute(query)
     question = cursor.fetchone()
+    print("Printing user")
+    print(question)
     if question[0] is not None:
-        if question[0] > 1:
+        print(question[0])
+        if question[0] >= 1:
             return 1
         else:
             return 0
