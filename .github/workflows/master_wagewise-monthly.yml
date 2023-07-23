@@ -60,4 +60,4 @@ jobs:
         with:
           app-name: 'wagewise-monthly'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_30A347F49EFA448981D4D4609B466F48 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_13DE525E6BB84E07918BBBF2D94CD68F }}
