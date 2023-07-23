@@ -207,3 +207,19 @@ def check_survey_status(num):
     finally:
         cursor.close()
         conn.close()
+
+def registered(num):
+    """
+    Returns 0 if user is not registered, 1 if registered
+    """
+    conn, cursor = Get_DB_conn()
+    query = f"select count(1) as r from users where number = '{num}';"
+    cursor.execute(query)
+    question = cursor.fetchone()
+    if question[0] is not None:
+        if question[0] > 1:
+            return 1
+        else:
+            return 0
+    else:
+        return 0
