@@ -128,9 +128,18 @@ def bot():
                 print(Message)
                 msg.body(Message)
             elif incoming_msg is not None and incoming_msg in ['Hi', 'hi', 'HI'] and new is not None:
-                Message = "Sorry, please try answering again. Remember to send only the letter that matches the answer you want to choose."
-                print(Message)
-                msg.body(Message)
+                if new[0]['Q_Number']=='-2':
+                    print(new[0]['Q_Number'])
+                    for r in new:
+                        Message = Message + '\n\n' + r['Question']
+                        # lrq.add_Question_Sent_Log(new, num)
+                    lrq.add_Question_Sent_Log(new, num)
+                    msg.body(Message)
+                else:
+                    Message = "Sorry, please try answering again. Remember to send only the letter that matches the answer you want to choose."
+                    print(Message)
+
+                    msg.body(Message)
             # elif new is not None and incoming_msg is not None:
             #     for r in new:
             #         Message = Message + '\n\n' + r['Question']
@@ -149,6 +158,3 @@ def bot():
         msg.body(Message)
 
     return str(resp)
-
-
-
