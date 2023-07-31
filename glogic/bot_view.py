@@ -104,9 +104,13 @@ def bot():
                             for r_ in new:
                                 if (count >= 21):
                                     print('At 21 count')
-                                    lrq.Vipe_clean_user_question_logs(num)
-                                    sa.send_airtime_after_survey(num, 100)
-
+                                    if num not in ['+27798756440','+27722929875','+27843378515','+27648579380','+27813552191','+27820711954','+27607986811','+27728356960']:
+                                        lrq.Vipe_clean_user_question_logs(num)
+                                        sa.send_airtime_after_survey(num, 100)
+                                    else:
+                                        lrq.Vipe_clean_user_question_logs(num)
+                                        sa.send_airtime_after_survey(num, 10)
+                                        
                                 Message = Message + '\n\n' + r_['Question'] + "\n\n" + r_['Options']
                         else:
                             Message = "Sorry, please try answering again. Remember to send only the letter that matches the answer you want to choose."
@@ -158,3 +162,6 @@ def bot():
         msg.body(Message)
 
     return str(resp)
+
+
+
